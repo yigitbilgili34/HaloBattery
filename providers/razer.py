@@ -41,6 +41,7 @@ KNOWN = {
     0x0555: ("Razer BlackShark V2 Pro (2023)", 0x3F),
     0x0556: ("Razer BlackShark V2 Pro (2023)", 0x3F),
     0x0557: ("Razer BlackShark V2 Pro (2023)", 0x3F),
+    0x0565: ("Razer BlackShark V2 HyperSpeed", 0x3F),
     0x057A: ("Razer BlackShark V3", 0x3F),         # its transaction id is not used
     0x00A4: ("Razer Mouse Dock Pro", 0x1F),
     # ---- keyboards with a battery, from OpenRazer's keyboard driver (razerkbd_driver.c:
