@@ -22,7 +22,7 @@ from typing import Dict, List, Optional, Tuple
 
 import hid
 
-from . import blackshark, blackshark2020, blackshark_v3, hidlist
+from . import blackshark, blackshark2020, blackshark_hs, blackshark_v3, hidlist
 from .base import DeviceStatus, Provider, hexdump, log
 
 RAZER_VID = 0x1532
@@ -416,6 +416,10 @@ class RazerProvider(Provider):
                 # Deliberately no generic/PA fallback either: the V3 answers neither, and
                 # sustained traffic on this dongle resets the headset's radio link.
                 st = self._poll_v3(ifaces)
+            elif pid == blackshark_hs.PID:
+                # V2 HyperSpeed: a MediaTek protocol of its own (blackshark_hs.py). It
+                # answers neither the 90-byte report nor the V2 Pro's PA frames.
+                st = self._poll_hs((pid, serial), ifaces)
             elif pid in blackshark.PA_PIDS:
                 # 2023 headset: its own protocol first
                 st = self._poll_pa((pid, serial), ifaces)
@@ -625,6 +629,26 @@ class RazerProvider(Provider):
                 # shows "no link" (STATUS_TIMEOUT) instead of losing its icon.
                 asleep = (STATUS_TIMEOUT, None, None)
         return offline or asleep
+
+    def _poll_hs(self, gkey, ifaces):
+        """BlackShark V2 HyperSpeed: the MediaTek protocol on its 0xFF14 collection."""
+        cache_key = ("hs",) + tuple(gkey)
+        cached = self._cache.get(cache_key)
+        cands = [d for d in ifaces if blackshark_hs.is_candidate(d)] or list(ifaces)
+        cands.sort(key=lambda d: (0 if cached and d["path"] == cached.path else 1,
+                                  0 if d.get("usage_page") == 0xFF14 else 1))
+        offline = None
+        for d in cands:
+            self._diag.append(
+                f"  [HS] iface={d.get('interface_number')} usage={d.get('usage_page', 0):04x}:"
+                f"{d.get('usage', 0):04x}")
+            res, level, charging = blackshark_hs.read_battery(d["path"], self._diag)
+            if res == "ok":
+                self._cache[cache_key] = _Cand(d["path"], 0)
+                return STATUS_OK, level, charging
+            if res == "offline" and offline is None:
+                offline = (STATUS_TIMEOUT, None, None)
+        return offline
 
     def diagnostics(self) -> List[str]:
         return list(self._diag)
